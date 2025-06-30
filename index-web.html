@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Painel de Leads - CRM</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js + Datalabels -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <!-- PapaParse -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
+  <style>
+    body { min-height: 100vh; background: linear-gradient(135deg, #6a1bc8 0%, #8e37d7 100%);}
+    .nav-dark { background: transparent; }
+    .tab-btn { color: #d6cfff; border-radius: 10px 10px 0 0; padding: 1rem 2.2rem; font-weight: 600; }
+    .tab-btn.active { background: #39118f50; color: #fff; }
+    .kpi-card { background: rgba(255,255,255,0.12); border-radius: 16px; box-shadow: 0 2px 8px #6a1bc820; padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.3rem; min-width: 180px; min-height: 90px;}
+    .kpi-label { font-size: 0.98rem; color: #e6e6fa; font-weight: 600;}
+    .kpi-value { font-size: 2rem; font-weight: 700;}
+    .dashboard-block { background: rgba(255,255,255,0.13); border-radius: 18px; padding: 1.3rem 1.3rem 1.2rem 1.3rem; box-shadow: 0 2px 14px #3b076420; min-height: 250px; min-width: 300px; flex: 1 1 40%; display: flex; flex-direction: column; justify-content: flex-start; margin-bottom: 0.7rem;}
+    .dashboard-title { font-size: 1.05rem; font-weight: bold; color: #ede9fe; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;}
+    .dashboard-chart { min-height: 180px; flex: 1 1 auto; margin-top: 0.4rem;}
+    .dashboard-empty { color: #aaa; font-size: 1rem; margin-top: 2.6rem; text-align: left; display: flex; align-items: center; gap: 0.3rem;}
+    .dashboard-empty i { opacity: 0.7; }
+    .dashboard-row { display: flex; gap: 1.5rem; margin-bottom: 1.2rem;}
+    @media (max-width: 950px) {.dashboard-row { flex-direction: column; gap: 1rem; } .dashboard-block { min-width: unset;}}
+    .dashboard-grid { display: flex; flex-direction: column; gap: 1.2rem;}
+    .import-label { color: #f5f5ff; font-weight: 600;}
+    .custom-scroll::-webkit-scrollbar { height: 5px; width: 5px; background: #aaa2; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #8884; border-radius: 2px;}
+    .filtro-card { background:rgba(255,255,255,0.18); border-radius:14px; padding:1.4rem 1rem 1rem 1rem; margin-bottom:1.4rem;}
+    .filtro-label { color:#ede9fe; font-weight:600; font-size:0.99rem;}
+    .input-dark, .select-dark { background: #432189 !important; color: #f3efff !important; border: 1px solid #7657e9 !important; border-radius: 8px !important; padding: 0.5rem 0.75rem;}
+    .input-dark:focus, .select-dark:focus { border-color: #8b5cf6 !important; box-shadow: 0 0 0 2px #8b5cf620;}
+    .checkbox-dark { accent-color: #8b5cf6; width: 16px; height: 16px;}
+    .filtros-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 1.3rem;}
+    .actions-row { display:flex;gap:1rem;margin-top:1rem;}
+    .btn-segment { background: #22c55e; color: #fff; font-weight: 600; border-radius: 0.75rem; padding: 0.55rem 1.3rem;}
+    .btn-export { background: #f472b6; color: #fff; font-weight: 600; border-radius: 0.75rem; padding: 0.55rem 1.3rem;}
+    .regra-card { background: rgba(255,255,255,0.17); border-radius: 14px; padding: 1.3rem 1rem 1.1rem 1rem; margin-bottom: 1.4rem; }
+    .regra-table th, .regra-table td { padding: 0.55rem 0.5rem; border-bottom: 1px solid #d1c4e9;}
+    .regra-table th { color: #b8a3f6;}
+    .regra-table tr:last-child td { border-bottom: none;}
+    .regra-table { width: 100%; font-size: 0.99rem;}
+    .instrucoes-list li {margin-bottom:0.7em;}
+    #abaLogin {background:linear-gradient(135deg,#21124b 0%,#222d58 100%);}
+    .login-form-card { background: #171a36; border-radius: 2rem; overflow: hidden; box-shadow: 0 6px 28px #22126952; min-width:330px; max-width:710px; width: 96vw; display:flex; flex-direction:column; margin:auto;}
+    @media (min-width:768px){.login-form-card{flex-direction:row;min-width:600px;}}
+    .login-form-l { flex:1; padding:2.3rem 2.1rem 2.2rem 2.1rem; display:flex; flex-direction:column; justify-content:center; min-width:240px;}
+    .login-form-r { flex:1.1; background:linear-gradient(130deg,#5646dd 0%,#2817ad 100%); min-height:310px; position:relative; display:none;}
+    @media(min-width:768px){.login-form-r{display:block;}}
+    .login-form-bgimg { opacity:0.44; width:100%;height:100%;object-fit:cover;position:absolute;inset:0;z-index:1;}
+    .login-form-gradient { position:absolute;inset:0;z-index:2;background:linear-gradient(130deg,#201063bb 0%,#24155c88 100%);}
+    .login-title {font-size:1.45rem;font-weight:bold;color:#fff;letter-spacing:.02em;}
+    .login-sub {color:#c2b6ff;font-size:0.99rem;}
+    .login-link {color:#4f46e5;cursor:pointer;}
+    .login-link:hover {text-decoration:underline;}
+    .login-input {background:#242857;border-radius:9px;padding:0.9rem 1.1rem;font-size:1.05rem;color:#fff;border:none;}
+    .login-input:focus{outline:none;box-shadow:0 0 0 2px #8b5cf650;}
+    .login-btn {background:#8b5cf6;color:#fff;font-weight:600;padding:0.9rem 1.1rem;border-radius:9px;font-size:1.08rem;transition:background .2s;}
+    .login-btn:hover {background:#6d28d9;}
+    .login-remember {accent-color:#8b5cf6;margin-right:0.5em;}
+    .login-msg {color:#f87171;font-size:0.98em;}
+  </style>
+</head>
+<body>
+  <!-- Login -->
+  <div id="abaLogin" class="fixed inset-0 flex items-center justify-center z-50" style="display:flex;">
+    <div class="login-form-card">
+      <div class="login-form-l">
+        <div class="mb-8">
+          <div class="login-title mb-2">Login to system</div>
+          <div class="login-sub">
+            Please enter your login information<br>
+            <span class="login-link" onclick="alert('Cadastro desativado nesta versão');">or click here to registration</span>
+          </div>
+        </div>
+        <form id="loginForm" class="flex flex-col gap-5" onsubmit="return false;">
+          <input type="text" id="loginUser" required placeholder="Username" class="login-input" autofocus>
+          <input type="password" id="loginPass" required placeholder="Password" class="login-input">
+          <div class="flex items-center mt-2">
+            <input type="checkbox" id="rememberMe" class="login-remember">
+            <label for="rememberMe" class="text-xs text-gray-300">Remember me</label>
+          </div>
+          <button id="btnDoLogin" class="login-btn mt-2" type="submit">Log in</button>
+          <div id="loginMsg" class="login-msg mt-1"></div>
+        </form>
+      </div>
+      <div class="login-form-r relative">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80"
+           alt="bg" class="login-form-bgimg" />
+        <div class="login-form-gradient"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Navegação -->
+  <div class="nav-dark flex gap-2 px-4 pt-6" id="mainNav" style="display:none;">
+    <button id="tabInicio" class="tab-btn active">Início</button>
+    <button id="tabResumo" class="tab-btn">Resumo da Base</button>
+    <button id="tabSegmentacao" class="tab-btn">Segmentação</button>
+    <button id="tabRegras" class="tab-btn">Regras de Priorização</button>
+  </div>
+  <!-- Início -->
+  <div class="w-full max-w-7xl mx-auto px-2 py-8" id="abaInicio" style="display:none;">
+    <div class="flex flex-col md:flex-row gap-6">
+      <!-- Card 1: Guia -->
+      <div class="flex-1 bg-white/90 rounded-xl shadow-xl p-7 flex flex-col items-start">
+        <div class="flex items-center mb-5 gap-3">
+          <i class="fas fa-rocket fa-2x text-indigo-600"></i>
+          <span class="text-lg font-bold text-indigo-900">Guia Rápido da Plataforma</span>
+        </div>
+        <p class="text-sm text-gray-700 mb-4">Confira os passos para usar a plataforma de leads com inteligência de priorização:</p>
+        <ul class="text-gray-700 mb-4 space-y-2 text-sm pl-3">
+          <li><b>1. Importe suas planilhas</b> na aba <b>Resumo da Base</b>.</li>
+          <li><b>2. Clique em Iniciar Análise</b> para processar os dados.</li>
+          <li><b>3. Use filtros avançados</b> na aba <b>Segmentação</b>.</li>
+          <li><b>4. Exporte leads filtrados</b> facilmente com um clique.</li>
+        </ul>
+        <div class="flex items-center gap-4 mt-2">
+          <i class="fas fa-user-graduate text-lg text-blue-400"></i>
+          <i class="fas fa-chart-bar text-lg text-purple-400"></i>
+          <i class="fas fa-filter text-lg text-green-400"></i>
+          <i class="fas fa-file-export text-lg text-pink-400"></i>
+        </div>
+      </div>
+      <!-- Card 2: Segmentação Inteligente -->
+      <div class="flex-1 bg-white/90 rounded-xl shadow-xl p-7 flex flex-col items-start">
+        <div class="flex items-center mb-5 gap-3">
+          <i class="fas fa-lightbulb fa-2x text-yellow-500"></i>
+          <span class="text-lg font-bold text-indigo-900">Segmentação Inteligente</span>
+        </div>
+        <p class="text-sm text-gray-700 mb-4">Crie suas próprias regras e visualize recomendações automáticas:</p>
+        <ul class="text-gray-700 mb-4 space-y-2 text-sm pl-3">
+          <li><b>5. Defina regras de prioridade</b> por margem, perfil e região na aba <b>Regras</b>.</li>
+          <li><b>6. Analise sugestões de segmento ideal</b> baseadas na sua configuração.</li>
+        </ul>
+        <div class="flex items-center gap-4 mt-2">
+          <i class="fas fa-sliders-h text-lg text-blue-400"></i>
+          <i class="fas fa-star text-lg text-yellow-400"></i>
+          <i class="fas fa-users text-lg text-green-500"></i>
+        </div>
+      </div>
+      <!-- Card 3: Suporte e Contato -->
+      <div class="flex-1 bg-white/90 rounded-xl shadow-xl p-7 flex flex-col items-start">
+        <div class="flex items-center mb-5 gap-3">
+          <i class="fas fa-hands-helping fa-2x text-indigo-500"></i>
+          <span class="text-lg font-bold text-indigo-900">Suporte e Contato</span>
+        </div>
+        <p class="text-sm text-gray-700 mb-4">Precisa de ajuda ou quer enviar sugestões? Fale com o suporte!</p>
+        <div class="flex flex-col gap-2 text-gray-700 text-sm">
+          <div><i class="fas fa-envelope text-blue-400 mr-2"></i> suporte@seudominio.com</div>
+          <div><i class="fas fa-phone text-green-400 mr-2"></i> (11) 99999-0000</div>
+        </div>
+        <div class="flex items-center gap-4 mt-4">
+          <i class="fas fa-info-circle text-lg text-indigo-400"></i>
+          <i class="fas fa-balance-scale text-lg text-yellow-400"></i>
+          <i class="fas fa-user-shield text-lg text-green-400"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Resumo da Base -->
+  <div class="max-w-7xl mx-auto px-3 py-7" id="abaResumo" style="display:none;">
+    <div class="kpi-card mb-4" style="background:#21124b;color:#fff">
+      <div class="kpi-label"><i class="fas fa-lightbulb text-yellow-300"></i> Sugestão de segmento do dia</div>
+      <div id="cardSugestao" style="margin-top:4px;"></div>
+    </div>
+    <div class="flex flex-wrap gap-4 mb-6">
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-users text-xl text-blue-400"></i> <span class="kpi-label">Total de Leads</span></div><div class="kpi-value" id="kpiTotal">0</div></div>
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-dollar-sign text-xl text-green-300"></i> <span class="kpi-label">% com Margem</span></div><div class="kpi-value text-green-300" id="kpiMargem">0%</div></div>
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-bullseye text-xl text-purple-300"></i> <span class="kpi-label">% Tomadores</span></div><div class="kpi-value text-purple-300" id="kpiTomadores">0%</div></div>
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-exclamation-triangle text-xl text-red-400"></i> <span class="kpi-label">Negativados</span></div><div class="kpi-value text-red-400" id="kpiNegativados">0</div></div>
+    </div>
+    <div class="mb-8 flex flex-col sm:flex-row gap-4 items-center">
+      <div>
+        <label class="import-label">Importar Base Principal (.csv): </label>
+        <input type="file" id="fileInput" accept=".csv" multiple class="bg-[#432189] border p-2 rounded-lg text-white custom-scroll">
+      </div>
+      <button id="btnAnalisar" class="btn-segment" style="min-width:180px" disabled>Iniciar Análise</button>
+      <div id="infoArquivos" class="text-white text-xs mt-2 sm:mt-0"></div>
+    </div>
+    <div class="dashboard-grid">
+      <div class="dashboard-row">
+        <div class="dashboard-block">
+          <div class="dashboard-title flex items-center gap-2">
+            <i class="fas fa-pie-chart text-lg text-blue-400"></i>Por Convênio/Produto
+            <span id="infoTopConv" title="Exibe os principais convênios/produtos ordenados pela quantidade de leads." class="ml-2 text-xs text-indigo-200 cursor-pointer">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <label class="text-xs text-white">Exibir:</label>
+            <select id="selectTopNConv" class="input-dark w-28 text-xs py-1">
+              <option value="10">TOP 10</option>
+              <option value="20">TOP 20</option>
+              <option value="0">Todos</option>
+            </select>
+            <span id="labelLegendaTopConv" class="text-xs text-indigo-100 ml-2"></span>
+          </div>
+          <div class="dashboard-chart" id="chartConvenioProduto">
+            <canvas id="graficoConvenioProduto"></canvas>
+          </div>
+        </div>
+        <div class="dashboard-block"><div class="dashboard-title"><i class="fas fa-sitemap text-lg text-purple-400"></i>Tipo de Saque</div><div class="dashboard-chart" id="chartTipoSaque"><canvas id="graficoTipoSaque"></canvas></div></div>
+      </div>
+      <div class="dashboard-row">
+        <div class="dashboard-block"><div class="dashboard-title"><i class="fas fa-sliders-h text-lg text-green-300"></i>Faixa de Margem</div><div class="dashboard-chart" id="chartFaixaMargem"><canvas id="graficoFaixaMargem"></canvas></div></div>
+        <div class="dashboard-block"><div class="dashboard-title"><i class="fas fa-map-marker-alt text-lg text-yellow-300"></i>Região por DDD</div><div class="dashboard-chart" id="chartRegiaoDDD"><canvas id="graficoRegiaoDDD"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+  <!-- Segmentação -->
+  <div class="max-w-7xl mx-auto px-3 py-7" id="abaSegmentacao" style="display:none;">
+    <div class="filtro-card mb-6">
+      <form id="formFiltro" onsubmit="return false;">
+        <div class="filtros-grid mb-2">
+          <div><label class="filtro-label">Convênio</label><select id="filtroConvenio" class="select-dark w-full"></select></div>
+          <div><label class="filtro-label">Produto</label><select id="filtroProduto" class="select-dark w-full"></select></div>
+          <div><label class="filtro-label">Perfil</label><select id="filtroPerfil" class="select-dark w-full"></select></div>
+          <div><label class="filtro-label">Tipo de Saque</label><select id="filtroTipoSaque" class="select-dark w-full"></select></div>
+          <div>
+            <label class="filtro-label">Faixa de Margem</label>
+            <div class="flex gap-2">
+              <input type="number" min="0" id="filtroMargemMin" placeholder="Mín" class="input-dark w-20" />
+              <input type="number" min="0" id="filtroMargemMax" placeholder="Máx" class="input-dark w-20" />
+            </div>
+          </div>
+          <div>
+            <label class="filtro-label">Opções</label>
+            <div class="flex flex-col gap-1 mt-1">
+              <label class="inline-flex items-center"><input type="checkbox" id="filtroNaoPerturbe" class="checkbox-dark mr-2"> Apenas Não Perturbe</label>
+              <label class="inline-flex items-center"><input type="checkbox" id="filtroNegativado" class="checkbox-dark mr-2"> Negativados</label>
+            </div>
+          </div>
+        </div>
+        <div class="actions-row">
+          <button class="btn-segment" id="btnSegmentar" type="button">Aplicar Segmentação</button>
+          <button class="btn-export" id="btnExportar" type="button">Exportar Segmentos (CSV)</button>
+        </div>
+      </form>
+    </div>
+    <div class="flex flex-wrap gap-4 mb-6">
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-users text-xl text-blue-400"></i> <span class="kpi-label">Total de Leads</span></div><div class="kpi-value" id="kpiTotalSeg">0</div></div>
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-dollar-sign text-xl text-green-300"></i> <span class="kpi-label">% com Margem</span></div><div class="kpi-value text-green-300" id="kpiMargemSeg">0%</div></div>
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-bullseye text-xl text-purple-300"></i> <span class="kpi-label">% Tomadores</span></div><div class="kpi-value text-purple-300" id="kpiTomadoresSeg">0%</div></div>
+      <div class="kpi-card"><div class="flex items-center gap-2"><i class="fas fa-exclamation-triangle text-xl text-red-400"></i> <span class="kpi-label">Negativados</span></div><div class="kpi-value text-red-400" id="kpiNegativadosSeg">0</div></div>
+    </div>
+    <div class="dashboard-grid">
+      <div class="dashboard-row">
+        <div class="dashboard-block">
+          <div class="dashboard-title flex items-center gap-2">
+            <i class="fas fa-pie-chart text-lg text-blue-400"></i>Por Convênio/Produto
+            <span id="infoTopConvSeg" title="Exibe os principais convênios/produtos ordenados pela quantidade de leads." class="ml-2 text-xs text-indigo-200 cursor-pointer">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <label class="text-xs text-white">Exibir:</label>
+            <select id="selectTopNConvSeg" class="input-dark w-28 text-xs py-1">
+              <option value="10">TOP 10</option>
+              <option value="20">TOP 20</option>
+              <option value="0">Todos</option>
+            </select>
+            <span id="labelLegendaTopConvSeg" class="text-xs text-indigo-100 ml-2"></span>
+          </div>
+          <div class="dashboard-chart" id="chartConvenioProdutoSeg">
+            <canvas id="graficoConvenioProdutoSeg"></canvas>
+          </div>
+        </div>
+        <div class="dashboard-block"><div class="dashboard-title"><i class="fas fa-sitemap text-lg text-purple-400"></i>Tipo de Saque</div><div class="dashboard-chart" id="chartTipoSaqueSeg"><canvas id="graficoTipoSaqueSeg"></canvas></div></div>
+      </div>
+      <div class="dashboard-row">
+        <div class="dashboard-block"><div class="dashboard-title"><i class="fas fa-sliders-h text-lg text-green-300"></i>Faixa de Margem</div><div class="dashboard-chart" id="chartFaixaMargemSeg"><canvas id="graficoFaixaMargemSeg"></canvas></div></div>
+        <div class="dashboard-block"><div class="dashboard-title"><i class="fas fa-map-marker-alt text-lg text-yellow-300"></i>Região por DDD</div><div class="dashboard-chart" id="chartRegiaoDDDSeg"><canvas id="graficoRegiaoDDDSeg"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+  <!-- Regras -->
+  <div class="max-w-7xl mx-auto px-3 py-7" id="abaRegras" style="display:none;">
+    <div class="regra-card">
+      <div class="kpi-label mb-2"><i class="fas fa-sliders-h text-yellow-400"></i> Cadastro de Regras de Prioridade</div>
+      <form id="formRegra" class="flex flex-wrap gap-3 items-end">
+        <div>
+          <label class="filtro-label">Faixa de Margem</label>
+          <div class="flex gap-1">
+            <input type="number" min="0" placeholder="mín" id="regraMargemMin" class="input-dark w-20" />
+            <input type="number" min="0" placeholder="máx" id="regraMargemMax" class="input-dark w-20" />
+          </div>
+        </div>
+        <div>
+          <label class="filtro-label">Região</label>
+          <select id="regraRegiao" class="select-dark">
+            <option value="">Todas</option>
+            <option>Norte</option><option>Nordeste</option><option>Centro-Oeste</option>
+            <option>Sudeste</option><option>Sul</option><option>Desconhecido</option>
+          </select>
+        </div>
+        <div>
+          <label class="filtro-label">Perfil</label>
+          <select id="regraPerfil" class="select-dark">
+            <option value="">Todos</option>
+            <option>Tomador</option>
+            <option>Potencial</option>
+          </select>
+        </div>
+        <div>
+          <label class="filtro-label">Prioridade</label>
+          <input type="number" id="regraScore" class="input-dark w-20" min="1" max="100" placeholder="Score" required />
+        </div>
+        <button id="btnAddRegra" class="btn-segment ml-2" type="submit">Adicionar/Atualizar</button>
+      </form>
+    </div>
+    <div class="regra-card">
+      <div class="kpi-label mb-2"><i class="fas fa-list text-blue-400"></i> Regras Atuais</div>
+      <div style="overflow-x:auto">
+      <table class="regra-table">
+        <thead>
+          <tr>
+            <th>Faixa de Margem</th>
+            <th>Região</th>
+            <th>Perfil</th>
+            <th>Prioridade</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRegras"></tbody>
+      </table>
+      </div>
+    </div>
+    <div class="regra-card">
+      <div class="kpi-label mb-2"><i class="fas fa-lightbulb text-yellow-300"></i> Análise da Tomada de Decisão</div>
+      <button id="btnAnalisarRegras" class="btn-segment mb-3">Sugerir Segmento Ideal</button>
+      <div id="resultadoRegras"></div>
+    </div>
+  </div>
+
+<script>
+// PALETA DE CORES
+const palette = [
+  "#6366f1","#22d3ee","#fbbf24","#38bdf8","#34d399","#f472b6",
+  "#c026d3","#fdba74","#eab308","#d946ef","#f87171"
+];
+let leads = [], leadsFiltrados = [];
+let charts = { convenioProduto:null, tipoSaque:null, faixaMargem:null, regiaoDDD:null };
+let chartsSeg = { convenioProduto:null, tipoSaque:null, faixaMargem:null, regiaoDDD:null };
+let regras = JSON.parse(localStorage.getItem("regras_prioridade")||"[]");
+let topNConv = 10;
+let topNConvSeg = 10;
+
+function graficoConvenioProduto(leadsBase, canvas, chartObj, topN = 10, labelLegendaId = "labelLegendaTopConv") {
+  if (chartObj.value) chartObj.value.destroy();
+  let conv = {};
+  leadsBase.forEach(l=>{
+    let c = l.convenio||"Indefinido";
+    if (c.toUpperCase().includes("CREDCESTA")) c="CREDCESTA";
+    conv[c] = (conv[c]||0)+1;
+  });
+  let entries = Object.entries(conv).sort((a, b) => b[1] - a[1]);
+  let topLabels, topValues, outros = 0;
+  if (topN > 0 && entries.length > topN) {
+    topLabels = entries.slice(0, topN).map(e => e[0]);
+    topValues = entries.slice(0, topN).map(e => e[1]);
+    outros = entries.slice(topN).reduce((acc, curr) => acc + curr[1], 0);
+    topLabels.push("Outros");
+    topValues.push(outros);
+  } else {
+    topLabels = entries.map(e => e[0]);
+    topValues = entries.map(e => e[1]);
+  }
+  if (!topLabels.length || topValues.every(v=>!v)) return setEmpty(canvas.id);
+  setNotEmpty(canvas.id);
+  let legenda = topN > 0 && entries.length > topN
+    ? `Mostrando apenas os ${topN} principais convênios/produtos`
+    : "Mostrando todos os convênios/produtos";
+  if (document.getElementById(labelLegendaId)) {
+    document.getElementById(labelLegendaId).textContent = legenda;
+  }
+  chartObj.value = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: topLabels,
+      datasets: [{
+        data: topValues,
+        backgroundColor: palette,
+        borderRadius: 10,
+        barPercentage: 0.7,
+        categoryPercentage: 0.7
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          anchor: 'end',
+          align: 'top',
+          color: '#fff',
+          font: { weight: 'bold', size: 15 },
+          formatter: v => v > 0 ? v : ""
+        },
+        tooltip: { enabled: true }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#fff', font: { size: 13 }, maxRotation: 40, minRotation: 30, autoSkip: false, }
+        },
+        y: { ticks: { color: '#fff', font: { size: 13 } }, beginAtZero: true }
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+
+function graficoTipoSaque(leadsBase, canvas, chartObj) {
+  if (chartObj.value) chartObj.value.destroy();
+  let saque = {};
+  leadsBase.forEach(l=>{
+    let t = l.tipo_de_saque||"Desconhecido";
+    saque[t]=(saque[t]||0)+1;
+  });
+  let labels = Object.keys(saque), vals = Object.values(saque);
+  if (!labels.length || vals.every(v=>!v)) return setEmpty(canvas.id);
+  setNotEmpty(canvas.id);
+  chartObj.value = new Chart(canvas,{
+    type:"bar",
+    data:{labels:labels, datasets:[{data:vals, backgroundColor:palette, borderRadius:12, borderSkipped:false}]},
+    options:{
+      indexAxis:'y',
+      plugins:{
+        legend:{display:false},
+        datalabels:{anchor:'end',align:'right',color:'#fff',font:{weight:'bold',size:14},formatter:v=>v>0?v:""}
+      },
+      scales:{x:{ticks:{color:'#fff',font:{size:13}}}, y:{ticks:{color:'#fff',font:{size:13}}}},
+      responsive:true,
+      maintainAspectRatio:false,
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+function graficoFaixaMargem(leadsBase, canvas, chartObj) {
+  if (chartObj.value) chartObj.value.destroy();
+  let faixas = { "0":0, "0-100":0, "100-500":0, "500-1000":0, "1000-2000":0, "2000+":0 };
+  leadsBase.forEach(l=>{
+    let m = parseFloat((l.limite_disponivel||"0").replace(",", "."))||0;
+    if (m === 0) faixas["0"]++;
+    else if (m<=100) faixas["0-100"]++;
+    else if (m<=500) faixas["100-500"]++;
+    else if (m<=1000) faixas["500-1000"]++;
+    else if (m<=2000) faixas["1000-2000"]++;
+    else faixas["2000+"]++;
+  });
+  let labels = Object.keys(faixas), vals = Object.values(faixas);
+  if (!vals.length || vals.every(v=>!v)) return setEmpty(canvas.id);
+  setNotEmpty(canvas.id);
+  chartObj.value = new Chart(canvas,{
+    type:"bar",
+    data:{labels:labels, datasets:[{label:"Qtde",data:vals,backgroundColor:palette, borderRadius:9}]},
+    options:{
+      plugins:{
+        legend:{display:false},
+        datalabels:{anchor:'end',align:'top',color:'#fff',font:{weight:'bold',size:13},formatter:v=>v>0?v:""}
+      },
+      scales:{x:{ticks:{color:'#fff',font:{size:13}}}, y:{ticks:{color:'#fff',font:{size:13}}}},
+      responsive:true,
+      maintainAspectRatio:false,
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+function graficoRegiaoDDD(leadsBase, canvas, chartObj) {
+  if (chartObj.value) chartObj.value.destroy();
+  let regioes = {};
+  leadsBase.forEach(l=>{
+    let tel = l.telefone||"";
+    let ddd = tel.match(/\d{2}/) ? tel.match(/\d{2}/)[0] : "";
+    let reg = regiaoPorDDD(ddd);
+    regioes[reg] = (regioes[reg]||0)+1;
+  });
+  let labels = Object.keys(regioes), vals = Object.values(regioes);
+  if (!labels.length || vals.every(v=>!v)) return setEmpty(canvas.id);
+  setNotEmpty(canvas.id);
+  chartObj.value = new Chart(canvas,{
+    type:"bar",
+    data:{labels:labels, datasets:[{data:vals, backgroundColor:palette, borderRadius:10, borderSkipped:false}]},
+    options:{
+      indexAxis:'y',
+      plugins:{
+        legend:{display:false},
+        datalabels:{anchor:'end',align:'right',color:'#fff',font:{weight:'bold',size:14},formatter:v=>v>0?v:""}
+      },
+      scales:{x:{ticks:{color:'#fff',font:{size:13}}}, y:{ticks:{color:'#fff',font:{size:13}}}},
+      responsive:true,
+      maintainAspectRatio:false,
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+function renderPainel(leadsBase, kpiSuf="", chartObjs=null) {
+  calcularKPIs(leadsBase, kpiSuf);
+  if (!chartObjs) chartObjs = charts;
+  let isSeg = kpiSuf === "Seg";
+  graficoConvenioProduto(
+    leadsBase,
+    document.getElementById("graficoConvenioProduto"+kpiSuf),
+    { value: chartObjs.convenioProduto },
+    isSeg ? topNConvSeg : topNConv,
+    isSeg ? "labelLegendaTopConvSeg" : "labelLegendaTopConv"
+  );
+  graficoTipoSaque(leadsBase, document.getElementById("graficoTipoSaque"+kpiSuf), { value: chartObjs.tipoSaque });
+  graficoFaixaMargem(leadsBase, document.getElementById("graficoFaixaMargem"+kpiSuf), { value: chartObjs.faixaMargem });
+  graficoRegiaoDDD(leadsBase, document.getElementById("graficoRegiaoDDD"+kpiSuf), { value: chartObjs.regiaoDDD });
+  chartObjs.convenioProduto = Chart.getChart(document.getElementById("graficoConvenioProduto"+kpiSuf));
+  chartObjs.tipoSaque = Chart.getChart(document.getElementById("graficoTipoSaque"+kpiSuf));
+  chartObjs.faixaMargem = Chart.getChart(document.getElementById("graficoFaixaMargem"+kpiSuf));
+  chartObjs.regiaoDDD = Chart.getChart(document.getElementById("graficoRegiaoDDD"+kpiSuf));
+}
+
+// --- UTIL ---
+function setEmpty(canvasId) {
+  let div = document.getElementById(canvasId).parentNode;
+  div.querySelector('canvas').style.display = "none";
+  if (!div.querySelector('.dashboard-empty')) {
+    let empty = document.createElement('div');
+    empty.className = 'dashboard-empty';
+    empty.innerHTML = `Sem dados para exibir com os filtros atuais. <i class="fas fa-chart-bar"></i>`;
+    div.appendChild(empty);
+  }
+}
+function setNotEmpty(canvasId) {
+  let div = document.getElementById(canvasId).parentNode;
+  div.querySelector('canvas').style.display = "block";
+  let empty = div.querySelector('.dashboard-empty');
+  if (empty) empty.remove();
+}
+function normalizeField(name) {
+  return name.trim().toLowerCase().replace(/[\s\-ãáâéêíóôõúç\/]+/g, "_").replace(/[^\w_]/gi, "");
+}
+function perfilTomador(l) {
+  const total = parseFloat((l.limite_total || "0").replace(",", "."));
+  const disp = parseFloat((l.limite_disponivel || "0").replace(",", "."));
+  return (total !== disp) ? "Tomador" : "Potencial";
+}
+const dddToRegiao = {
+  "Norte": ["68","69","92","97","91","93","94","95","96","98","99"],
+  "Nordeste": ["71","73","74","75","77","79","81","82","83","84","85","86","87","88","89"],
+  "Centro-Oeste": ["61","62","64","65","66","67"],
+  "Sudeste": ["11","12","13","14","15","16","17","18","19","21","22","24","27","28","31","32","33","34","35","37","38"],
+  "Sul": ["41","42","43","44","45","46","47","48","49","51","53","54","55"]
+};
+function regiaoPorDDD(ddd) {
+  ddd = String(ddd).replace(/[^\d]/g,"").slice(0,2);
+  for (let reg in dddToRegiao)
+    if (dddToRegiao[reg].includes(ddd)) return reg;
+  return "Desconhecido";
+}
+function calcularKPIs(leadsBase, suf="") {
+  document.getElementById('kpiTotal'+suf).textContent = leadsBase.length;
+  let tomadores = leadsBase.filter(l=>perfilTomador(l)==="Tomador").length;
+  let margem = leadsBase.filter(l=>parseFloat((l.limite_disponivel||"0").replace(",","."))>0).length;
+  let negativados = leadsBase.filter(l => parseFloat((l.limite_disponivel||"0").replace(",", ".")) <= 0).length;
+  document.getElementById('kpiMargem'+suf).textContent = leadsBase.length ? ((margem/leadsBase.length)*100).toFixed(1)+"%" : "0%";
+  document.getElementById('kpiTomadores'+suf).textContent = leadsBase.length ? ((tomadores/leadsBase.length)*100).toFixed(1)+"%" : "0%";
+  document.getElementById('kpiNegativados'+suf).textContent = negativados;
+}
+function getUnique(list, col) {
+  return Array.from(new Set(list.map(x => x[col]||"").filter(x=>x!=="")));
+}
+function loadDropdown(id, arr, includeTodos=true) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = "";
+  if (includeTodos) sel.innerHTML += `<option value="">Todos</option>`;
+  arr.filter(x=>x).forEach(v => { sel.innerHTML += `<option value="${v}">${v}</option>`; });
+}
+function atualizarFiltros() {
+  if (!leads.length) return;
+  loadDropdown("filtroConvenio", getUnique(leads, "convenio"));
+  loadDropdown("filtroProduto", getUnique(leads, "produto"));
+  loadDropdown("filtroPerfil", ["Tomador","Potencial"]);
+  loadDropdown("filtroTipoSaque", getUnique(leads, "tipo_de_saque"));
+  document.getElementById("filtroNaoPerturbe").checked = false;
+  document.getElementById("filtroNegativado").checked = false;
+}
+function aplicarFiltros() {
+  let cConv = document.getElementById("filtroConvenio").value;
+  let cProd = document.getElementById("filtroProduto").value;
+  let cPerfil = document.getElementById("filtroPerfil").value;
+  let cTipoSaque = document.getElementById("filtroTipoSaque").value;
+  let cNP = document.getElementById("filtroNaoPerturbe").checked;
+  let cNeg = document.getElementById("filtroNegativado").checked;
+  let margemMin = parseFloat(document.getElementById("filtroMargemMin").value) || null;
+  let margemMax = parseFloat(document.getElementById("filtroMargemMax").value) || null;
+  leadsFiltrados = leads.filter(l => {
+    if (cConv && l.convenio !== cConv) return false;
+    if (cProd && l.produto !== cProd) return false;
+    if (cTipoSaque && l.tipo_de_saque !== cTipoSaque) return false;
+    if (cPerfil && perfilTomador(l) !== cPerfil) return false;
+    if (cNP && String(l.nao_perturbe||l.não_perturbe||"").toLowerCase()!=="sim") return false;
+    if (cNeg && !(parseFloat((l.limite_disponivel||"0").replace(",", ".")) <= 0)) return false;
+    let m = parseFloat((l.limite_disponivel||"0").replace(",", "."))||0;
+    if (margemMin && m < margemMin) return false;
+    if (margemMax && m > margemMax) return false;
+    return true;
+  });
+  renderPainel(leadsFiltrados, "Seg", chartsSeg);
+}
+function sugerirMelhorSegmento(leadsBase) {
+  if (!leadsBase.length || !regras.length) {
+    document.getElementById("cardSugestao").innerHTML = "<i>Cadastre regras e carregue a base!</i>";
+    return;
+  }
+  let analise = {};
+  leadsBase.forEach(l => {
+    let margem = parseFloat((l.limite_disponivel||"0").replace(",",".")); let regiao = regiaoPorDDD((l.telefone||"").match(/\d{2}/)?.[0]||"");
+    let perfil = perfilTomador(l);
+    let melhorRegra = {score:0};
+    regras.forEach(r=>{
+      if (margem>=r.margemMin && margem<=r.margemMax && (!r.regiao || r.regiao===regiao) && (!r.perfil || r.perfil===perfil)) {
+        if (r.score>melhorRegra.score) melhorRegra = r;
+      }
+    });
+    let chave = `Margem:${melhorRegra.margemMin||0}-${melhorRegra.margemMax||"∞"} | Região:${melhorRegra.regiao||"Todas"} | Perfil:${melhorRegra.perfil||"Todos"}`;
+    if (!analise[chave]) analise[chave] = {score:0, total:0};
+    analise[chave].score += melhorRegra.score; analise[chave].total += 1;
+  });
+  let melhor = Object.entries(analise).sort((a,b)=>b[1].score-a[1].score)[0];
+  document.getElementById("cardSugestao").innerHTML = melhor
+    ? `<b>Segmento Sugerido:</b> <br>
+      <span style="font-size:1.1em">${melhor[0]}</span><br>
+      <b>Score total:</b> ${melhor[1].score} <b>Leads:</b> ${melhor[1].total}`
+    : `<i>Nenhuma regra aplicável para a base.</i>`;
+}
+
+// --- Regras ---
+function salvarRegras() {
+  localStorage.setItem("regras_prioridade", JSON.stringify(regras));
+  renderRegras();
+}
+function renderRegras() {
+  const tbody = document.getElementById("tbodyRegras");
+  tbody.innerHTML = "";
+  regras.forEach((r, i) => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${r.margemMin||0} - ${r.margemMax||"∞"}</td>
+        <td>${r.regiao||"Todas"}</td>
+        <td>${r.perfil||"Todos"}</td>
+        <td>${r.score}</td>
+        <td>
+          <button onclick="removerRegra(${i})" class="text-red-400 hover:underline">Excluir</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+window.removerRegra = function(i) {
+  regras.splice(i,1);
+  salvarRegras();
+};
+document.getElementById("formRegra").onsubmit = function(e){
+  e.preventDefault();
+  let margemMin = parseFloat(document.getElementById("regraMargemMin").value)||0;
+  let margemMax = parseFloat(document.getElementById("regraMargemMax").value)||999999;
+  let regiao = document.getElementById("regraRegiao").value;
+  let perfil = document.getElementById("regraPerfil").value;
+  let score = parseFloat(document.getElementById("regraScore").value)||1;
+  let existente = regras.find(r =>
+    r.margemMin===margemMin && r.margemMax===margemMax &&
+    r.regiao===regiao && r.perfil===perfil
+  );
+  if (existente) { existente.score = score; } else {
+    regras.push({ margemMin, margemMax, regiao, perfil, score });
+  }
+  salvarRegras();
+  this.reset();
+};
+document.getElementById("btnAnalisarRegras").onclick = function(){
+  if (!leads.length) return document.getElementById("resultadoRegras").innerHTML = "Importe sua base!";
+  let analise = {};
+  leads.forEach(l => {
+    let margem = parseFloat((l.limite_disponivel||"0").replace(",",".")); let regiao = regiaoPorDDD((l.telefone||"").match(/\d{2}/)?.[0]||"");
+    let perfil = perfilTomador(l);
+    let melhorRegra = {score:0};
+    regras.forEach(r=>{
+      if (margem>=r.margemMin && margem<=r.margemMax && (!r.regiao || r.regiao===regiao) && (!r.perfil || r.perfil===perfil)) {
+        if (r.score>melhorRegra.score) melhorRegra = r;
+      }
+    });
+    let chave = `Margem:${melhorRegra.margemMin||0}-${melhorRegra.margemMax||"∞"} | Região:${melhorRegra.regiao||"Todas"} | Perfil:${melhorRegra.perfil||"Todos"}`;
+    if (!analise[chave]) analise[chave] = {score:0, total:0};
+    analise[chave].score += melhorRegra.score; analise[chave].total += 1;
+  });
+  let melhor = Object.entries(analise).sort((a,b)=>b[1].score-a[1].score)[0];
+  document.getElementById("resultadoRegras").innerHTML = melhor
+    ? `<b>Segmento Sugerido:</b> <br>
+      <span style="font-size:1.1em">${melhor[0]}</span><br>
+      <b>Score total:</b> ${melhor[1].score} <b>Leads:</b> ${melhor[1].total}`
+    : `<i>Nenhuma regra aplicável para a base.</i>`;
+};
+renderRegras();
+
+// --- Multi-upload e Botão Analisar ---
+let arquivosSelecionados = [];
+let todasLinhas = [];
+document.getElementById("fileInput").addEventListener("change", function(e){
+  arquivosSelecionados = Array.from(e.target.files);
+  todasLinhas = [];
+  document.getElementById("btnAnalisar").disabled = arquivosSelecionados.length === 0;
+  document.getElementById("infoArquivos").innerHTML = arquivosSelecionados.length
+    ? `(${arquivosSelecionados.length} arquivo(s) selecionado${arquivosSelecionados.length>1?'s':''})`
+    : "";
+  leads = [];
+  renderPainel([], "", charts);
+  atualizarFiltros();
+  aplicarFiltros();
+  document.getElementById("cardSugestao").innerHTML = "";
+});
+document.getElementById("btnAnalisar").addEventListener("click", function(){
+  if (!arquivosSelecionados.length) return;
+  todasLinhas = [];
+  let arquivosLidos = 0;
+  arquivosSelecionados.forEach(file => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        const linhas = results.data.map(row=>{
+          const obj = {};
+          Object.keys(row).forEach(key=>{
+            let k = normalizeField(key);
+            obj[k]=row[key]?.trim();
+          });
+          if (obj.convenio && obj.convenio.toUpperCase().includes("CREDCESTA")) obj.produto = "CREDCESTA";
+          return obj;
+        });
+        todasLinhas = todasLinhas.concat(linhas);
+        arquivosLidos++;
+        if (arquivosLidos === arquivosSelecionados.length) {
+          let seen = new Set();
+          leads = todasLinhas.filter(l => {
+            let key = (l.cpf||"") + "-" + (l.nome||"");
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          atualizarFiltros();
+          renderPainel(leads, "", charts);
+          aplicarFiltros();
+          sugerirMelhorSegmento(leads);
+        }
+      }
+    });
+  });
+});
+
+// --- Segmentação ---
+document.getElementById("btnSegmentar").onclick = aplicarFiltros;
+document.getElementById("btnExportar").onclick = function() {
+  if (!leadsFiltrados.length) return;
+  let keys = Object.keys(leadsFiltrados[0]);
+  if (!keys.includes("perfil")) keys.push("perfil");
+  const csvRows = [
+    keys.join(","),
+    ...leadsFiltrados.map(l=>keys.map(k=>
+      `"${(k==="perfil"?perfilTomador(l):(l[k]??"")).toString().replace(/"/g,'""')}"`
+    ).join(","))
+  ];
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "segmento.csv";
+  a.click();
+  window.URL.revokeObjectURL(url);
+};
+
+// --- Select TOP N ---
+document.getElementById("selectTopNConv").addEventListener("change", function() {
+  topNConv = parseInt(this.value, 10);
+  renderPainel(leads, "", charts);
+});
+document.getElementById("selectTopNConvSeg").addEventListener("change", function() {
+  topNConvSeg = parseInt(this.value, 10);
+  renderPainel(leadsFiltrados, "Seg", chartsSeg);
+});
+
+// --- Controle de abas (com página inicial) ---
+function showTab(tab) {
+  document.getElementById("abaInicio").style.display = (tab==="inicio"?"block":"none");
+  document.getElementById("abaResumo").style.display = (tab==="resumo"?"block":"none");
+  document.getElementById("abaSegmentacao").style.display = (tab==="segmentacao"?"block":"none");
+  document.getElementById("abaRegras").style.display = (tab==="regras"?"block":"none");
+  document.getElementById("tabInicio").classList.toggle("active", tab==="inicio");
+  document.getElementById("tabResumo").classList.toggle("active", tab==="resumo");
+  document.getElementById("tabSegmentacao").classList.toggle("active", tab==="segmentacao");
+  document.getElementById("tabRegras").classList.toggle("active", tab==="regras");
+}
+function entrarPainel() {
+  document.getElementById("abaLogin").style.display = "none";
+  document.getElementById("mainNav").style.display = "flex";
+  document.getElementById("abaInicio").style.display = "block";
+  showTab("inicio");
+}
+document.getElementById("loginForm").onsubmit = function() {
+  const user = document.getElementById("loginUser").value;
+  const pass = document.getElementById("loginPass").value;
+  if(user === "admin" && pass === "123456") {
+    entrarPainel();
+  } else {
+    document.getElementById("loginMsg").innerText = "Usuário ou senha inválidos.";
+  }
+  return false;
+};
+document.getElementById("tabInicio").onclick = () => showTab("inicio");
+document.getElementById("tabResumo").onclick = () => showTab("resumo");
+document.getElementById("tabSegmentacao").onclick = () => showTab("segmentacao");
+document.getElementById("tabRegras").onclick = () => showTab("regras");
+
+// Inicialização
+showTab("inicio");
+renderPainel([], "", charts);
+renderPainel([], "Seg", chartsSeg);
+</script>
+</body>
+</html>
